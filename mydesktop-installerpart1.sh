@@ -1,4 +1,4 @@
-
+#!/bin/sh
 
 # installation  freebsd 14 + KDE et divers
 # version 1.04 26.07.2025 text install guide on USB /isi
