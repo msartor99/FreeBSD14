@@ -12,8 +12,6 @@
 # mount /dev/da0s2a /media/usb
 # cd /media/usb/isi & cp * /media
 
-# install cups
-
 ####################################################
 # reboot et login administrateur and su -
 # one line at once
