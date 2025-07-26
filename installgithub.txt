@@ -1,0 +1,13 @@
+pkg update
+pkg install -y wget 
+
+wget  https://github.com/msartor99/FreeBSD14/blob/main/freebsd-logo-rev.png
+wget https://github.com/msartor99/FreeBSD14/blob/main/freebsd-brand-rev.png
+wget https://github.com/msartor99/FreeBSD14/blob/main/Main.qml
+wget https://github.com/msartor99/FreeBSD14/blob/main/metadata.desktop
+wget https://github.com/msartor99/FreeBSD14/blob/main/nasa2560login.png
+wget https://github.com/msartor99/FreeBSD14/blob/main/nasa1920.png
+wget https://github.com/msartor99/FreeBSD14/blob/main/mydesktop-installerpart1.sh
+wget https://github.com/msartor99/FreeBSD14/blob/main/mydesktop-installerpart2.sh
+a
+wget https://github.com/msartor99/FreeBSD14/blob/main/mydesktop-installerpart3.sh
