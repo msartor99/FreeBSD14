@@ -1,3 +1,4 @@
+#!/bin/sh
 
 #############################################
 # install VirtualBOX 7.0 second part ( and printer manager )
