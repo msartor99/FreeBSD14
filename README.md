@@ -3,6 +3,7 @@ my little research on FreeBSD.
 
 Hello everyone, my name is Michel and I have been trying for some time to do a complete installation of FreeBSD 14 in French, because I live in French-speaking Switzerland.
 Here are three shell script files which, after installing Freebsd from a USB key, allow you to configure different options.
+use instructions on installgithub.txt to copy them.
 copy them all and you will have a FreeBSD tuning configuration.
 I also install some programs and all that on KDE.
 
