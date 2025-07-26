@@ -139,10 +139,10 @@ cd
 pkg install -y sudo
 
 
-####################################################
-# use visudo to remove # at %wheel ALL=(ALL:ALL ) ALL 
-# echo to sudo file Don't work
-####################################################
+echo ####################################################
+echo # use visudo to remove # at %wheel ALL=(ALL:ALL ) ALL 
+echo # echo to sudo file Don't work
+echo ####################################################
 
 printf "%s " "Press enter to continue"
 read ans
