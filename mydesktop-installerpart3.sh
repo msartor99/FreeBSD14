@@ -77,10 +77,6 @@ chmod 555  /usr/local/etc/xrdp/startwm.sh
 sysrc sddm_enable="YES"
 sysrc sddm_lang="ch_FR"
 
-freebsd-update fetch install
-
-reboot
-
 
 ####################################################
 #   set latest to repo but kde plasma some tips to re install
@@ -133,4 +129,4 @@ read ans
 # 
 
 
-# reboot
+
