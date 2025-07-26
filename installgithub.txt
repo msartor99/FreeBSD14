@@ -9,5 +9,4 @@ wget https://github.com/msartor99/FreeBSD14/blob/main/nasa2560login.png
 wget https://github.com/msartor99/FreeBSD14/blob/main/nasa1920.png
 wget https://github.com/msartor99/FreeBSD14/blob/main/mydesktop-installerpart1.sh
 wget https://github.com/msartor99/FreeBSD14/blob/main/mydesktop-installerpart2.sh
-a
 wget https://github.com/msartor99/FreeBSD14/blob/main/mydesktop-installerpart3.sh
