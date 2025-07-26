@@ -84,6 +84,12 @@ sysrc sddm_lang="ch_FR"
 #
 # 
 ####################################################
+echo ####################################################
+echo #   set latest to repo but kde plasma some tips to re install
+echo #   if you dont want to set lastest, stop script
+echo #   now with ctrl-c
+echo ####################################################
+
 
 printf "%s " "Press enter to continue"
 read ans
@@ -115,9 +121,10 @@ pkg install -y  konversation merkuro  signal-desktop vdpauinfo
 
 
 
-####################################################
-# USE  KDE macos theme SONOMATIC 2.0 by phob1an, and install accretion start image,
-#  and whiteSur Dark for icon and util and kvantum
+echo ####################################################
+echo # USE  KDE macos theme SONOMATIC 2.0 by phob1an, and install accretion start image,
+echo #  and whiteSur Dark for icon and util and kvantum
+echo ####################################################
 
 printf "%s " "Press enter to continue"
 read ans
@@ -128,6 +135,6 @@ read ans
 ####################################################
 #  finito
 # 
-
+reboot
 
 
