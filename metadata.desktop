@@ -1,0 +1,17 @@
+[SddmGreeterTheme]
+Name=Nasa
+Description=Nasa Theme
+Author=xxx
+Copyright=ms
+License=CC-BY-SA
+Type=sddm-theme
+Version=0.1
+Website=https://github.com/sddm/sddm
+Screenshot=maldives.jpg
+MainScript=Main.qml
+ConfigFile=theme.conf
+TranslationsDirectory=translations
+Email=abdurrahmanavci@gmail.com
+Theme-Id=nasa
+Theme-API=2.0
+QtVersion=6
