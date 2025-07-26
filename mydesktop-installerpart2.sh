@@ -207,13 +207,13 @@ pkg install -y \
 pkg install -y terminus-font terminus-ttf
 
 
-####################################################
-# install virtualbox 7.0
-# 22.4.2025 NEW version dont forget hald_enable 
-# 11.06.2025 Freebsd 14.3 release block vboxdrv load, do not install vb on 14.3
-# 15.7.2025 now ok, but need reboot before vboxdrv config
-#
-####################################################
+echo ####################################################
+echo # install virtualbox 7.0
+echo #
+echo # 11.06.2025 Freebsd 14.3 release block vboxdrv load, do not install vb on 14.3
+echo # 15.7.2025 now ok, but need reboot before vboxdrv config
+echo #
+echo ####################################################
 
 pkg install -y virtualbox-ose-70
 
@@ -226,12 +226,13 @@ pw groupmod vboxusers -m root
 
 pw groupmod vboxusers -m administrateur
 
-#############################################
-# 15.7.2025 Virtualbox
-# need reboot now and
-# execute chown after the reboot 
-#
-####################################################
-
-reboot
+echo #############################################
+echo # 15.7.2025 Virtualbox
+echo # need reboot now and
+echo # execute next shell script after the reboot 
+echo #
+echo ####################################################
+printf "%s " "Press enter to continue"
+read ans
+# reboot
 
