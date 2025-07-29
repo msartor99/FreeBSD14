@@ -9,6 +9,4 @@ wget https://raw.github.com/msartor99/FreeBSD14/main/Main.qml
 wget https://raw.github.com/msartor99/FreeBSD14/main/metadata.desktop
 wget https://raw.github.com/msartor99/FreeBSD14/main/nasa2560login.png
 wget https://raw.github.com/msartor99/FreeBSD14/main/nasa1920.png
-wget https://raw.github.com/msartor99/FreeBSD14/main/mydesktop-installerpart1.sh
-wget https://raw.github.com/msartor99/FreeBSD14/main/mydesktop-installerpart2.sh
-wget https://raw.github.com/msartor99/FreeBSD14/main/mydesktop-installerpart3.sh
+wget https://raw.github.com/msartor99/FreeBSD14/main/FreeBSD simple install.txt
