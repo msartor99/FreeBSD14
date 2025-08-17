@@ -1,0 +1,713 @@
+
+
+# installation  freebsd 14 + KDE et divers
+# version 2.0 17.08.2025 
+# boot usb et install : keyboard sf, network ip fixe, user administrateur,password
+
+####################################################
+# reboot et login administrateur and su -
+# one line at once
+####################################################
+
+
+####################################################
+#   EVERYTHING MUST BE INSTALLED IN QUARTERLY PKG
+
+pkg update
+y
+
+freebsd-update fetch install
+
+
+####################################################
+#                                       BASE CONFIG
+#  
+####################################################
+
+echo "PermitRootLogin yes" >> /etc/ssh/sshd_config
+sh /etc/rc.d/sshd restart
+
+####################################################
+# some tips and silent boot (some times...)
+####################################################
+
+echo 'boot_mute="YES"' >>/boot/loader.conf
+echo 'splash_changer_enable="YES"' >>/etc/rc.conf 
+
+sed -i '' 's/run_rc_script ${_rc_elem} ${_boot}/run_rc_script ${_rc_elem} ${_boot} > \/dev\/null/g' /etc/rc
+sysrc rc_startmsgs=NO
+
+####################################################
+# set boot time out
+#
+####################################################
+
+sysrc -f /boot/loader.conf autoboot_delay=3
+
+####################################################
+# some tips to enhance speed of desktop
+#
+####################################################
+
+echo "kern.sched.preempt_thresh=224 " >>/etc/sysctl.conf
+echo "kern.ipc.shm_allow_removed=1" >>/etc/sysctl.conf
+
+echo 'tmpfs_load="YES"' >>/boot/loader.conf
+echo 'aio_load="YES"' >>/boot/loader.conf
+sysctl net.local.stream.recvspace=65536
+sysctl net.local.stream.sendspace=65536
+
+
+####################################################
+# set time out
+#
+####################################################
+
+
+cat > /etc/ntp.conf <<EOF
+pool 0.ch.pool.ntp.org iburst
+pool 1.ch.pool.ntp.org iburst
+pool 2.ch.pool.ntp.org iburst
+pool 3.ch.pool.ntp.org iburst
+EOF
+
+
+
+####################################################
+# set ntp if no config at install 
+#
+####################################################
+
+cat >> /etc/rc.conf <<EOF
+ntpdate_enable="YES"	
+ntp_sync_on_start="YES"
+ntpd_enable="YES"
+EOF
+
+
+####################################################
+# some tips to manage temp on board
+#
+####################################################
+
+# for Intel
+echo 'coretemp_load="YES"' >>/boot/loader.conf
+
+# for AMD
+# echo 'amdtemp_load="YES"' >>/boot/loader.conf
+
+
+####################################################
+# need enable Linux for Nvidia driver
+#
+####################################################
+
+sysrc -f /etc/rc.conf linux_enable="YES"
+
+
+####################################################
+# configuration 
+# install htop and utility
+####################################################
+
+pkg install -y htop neofetch doas unzip libzip smartmontools avahi dbus wget
+pkg install -y python3 bashtop system-config-printer cups xfburn xpdf 
+
+
+####################################################
+# configuration powermanagement
+# 
+####################################################
+
+sysrc smartd_enable="YES"
+cd /usr/local/etc
+cp smartd.conf.sample smartd.conf
+service smartd start
+cd
+
+
+
+####################################################
+# use visudo to change %wheel ALL=(ALL:ALL ) ALL 
+# echo to sudo file Don't work
+
+visudo
+
+
+####################################################
+# Samba server (www.server-world.info)
+# change network IP for yours
+
+pkg install -y samba416
+
+mkdir /home/share
+chmod 777 /home/share
+cat >>/usr/local/etc/smb4.conf <<EOF
+
+ # create new
+
+[global]
+    unix charset = UTF-8
+    workgroup = HOMELAB
+    server string = FreeBSD
+    # network range you allow to access
+    interfaces = 127.0.0.0/8 192.168.254.0/24
+    bind interfaces only = yes
+    map to guest = bad user
+
+# any Share name you like
+[Share]
+    # specify shared directory
+    path = /home/share
+    # allow writing
+    writable = yes
+    # allow guest user (nobody)
+    guest ok = yes
+    # looks all as guest user
+    guest only = yes
+    # set permission [777] when file created
+    force create mode = 777
+    # set permission [777] when folder created
+    force directory mode = 777
+
+EOF
+
+
+
+####################################################
+# install french class 
+#   do not use cat
+####################################################
+
+
+echo "  " >> /etc/login.conf
+echo 'french|French Users Accounts:\' >> /etc/login.conf
+echo '     :charset=UTF-8:\' >> /etc/login.conf
+echo '     :lang=fr_FR.UTF-8:\' >> /etc/login.conf
+echo '      lc_all=fr_FR:\' >> /etc/login.conf
+echo '      lc_collate=fr_FR:\' >> /etc/login.conf
+echo '      lc_ctype=fr_FR:\' >> /etc/login.conf
+echo '      lc_messages=fr_FR:\' >> /etc/login.conf
+echo '     :tc=default:' >> /etc/login.conf
+echo '   ' >> /etc/login.conf
+
+cap_mkdb /etc/login.conf
+echo 'defaultclass=french' > /etc/adduser.conf
+
+
+####################################################
+#
+# use adduser -C to set default values
+# or setup in adduser.conf
+# when user added on install, change Language to French
+# administrateur created at install
+####################################################
+
+pw usermod administrateur -G wheel,operator,video -L french
+
+pw usermod root -L french
+
+
+####################################################
+# install xorg before any video drivers
+#
+####################################################
+
+echo  'dbus_enable="YES"' >> /etc/rc.conf
+echo  'avahi_enable="YES"' >> /etc/rc.conf
+echo  "proc       proc       procfs       rw       0       0" >>/etc/fstab
+echo  "fdesc     /dev/fd      fdescfs       rw       0       0" >>/etc/fstab
+
+pkg install -y xorg avahi dbus
+
+####################################################
+# now set swiss french keyboard on X11 config
+#
+####################################################
+
+cat >>/usr/local/etc/X11/xorg.conf.d/20keyboards.conf <<EOF
+Section     "InputClass"
+           Identifier     "All Keyboards"
+           MatchIsKeyboard    "yes"
+           Option     "XkbLayout" "ch"
+           Option     "XkbVariant" "fr"
+EndSection
+
+EOF
+
+####################################################
+# set ctrl-alt-backspace to kill X11
+#
+####################################################
+
+cat >> /usr/local/etc/X11/xorg.conf.d/flags.conf <<EOF
+
+Section "ServerFlags"
+                 Option "DontZap" "false"
+EndSection
+
+Section   "InputClass"
+              Identifier       "Keyboard Defaults"
+              MatchIsKeyboard  "yes"
+              Option           "XkbOptions" "terminate:ctrl_alt_bksp" 
+
+EndSection 
+
+EOF
+
+
+####################################################
+# now reboot needed to set video driver
+#
+####################################################
+
+reboot
+
+####################################################
+# install graphic card driver
+# select only one for your graphic card
+####################################################
+
+####################################################
+# before execute basic check how to see type of graphic adapter
+
+pciconf -lv | grep -B4 "VGA"
+
+# how to see boot method
+
+sysctl machdep.bootmethod
+
+####################################################
+# install basic driver only if not nVidia or AMD
+
+pkg install -y xf86-video-vesa
+
+
+####################################################
+# for Nvidia old Quadro K* use version 470
+# for Nvidia old Quadro NO K* use version 390
+# for Quadro M-P-RTX use version 550 and above
+# but try last version and remove if not working
+####################################################
+
+# pkg install -y nvidia-driver-390 nvidia-xconfig nvidia-settings
+
+# pkg install -y nvidia-driver-470 nvidia-xconfig nvidia-settings
+
+# pkg install -y nvidia-driver nvidia-xconfig nvidia-settings
+
+
+sysrc kld_list+=nvidia-modeset
+kldload nvidia-modeset
+nvidia-xconfig
+
+
+
+
+####################################################
+# sound set to DisplayPort first DP port
+# 
+####################################################
+
+pkg install -y pulseaudio
+sysrc -f /etc/rc.conf sound_load="YES"
+sysrc -f /etc/rc.conf snd_hda_load="YES"
+sysctl hw.snd.default_unit=1
+
+
+
+####################################################
+# install USB support
+
+
+pkg install -y fusefs-ntfs fusefs-ext2 fusefs-hfsfuse
+sysrc kld_list+=fusefs
+sysrc kld_list+=ext2fs
+kldload fusefs
+kldload ext2fs
+echo "vfs.usermount=1" >> /etc/sysctl.conf
+
+
+####################################################
+# set devfs local rules
+# yes we need it for all version
+
+cat >>/etc/devfs.rules <<EOF
+
+[localrules=5]
+add path 'da*' mode 0660 group operator
+add path 'cd*' mode 0660 group operator
+add path 'uscanner*' mode 0660 group operator
+add path 'xpt*' mode 660 group operator
+add path 'pass*' mode 660 group operator
+add path 'md*' mode 0660 group operator
+add path 'msdosfs/*' mode 0660 group operator
+add path 'ext2fs/*' mode 0660 group operator
+add path 'ntfs/*' mode 0660 group operator
+add path 'usb/*' mode 0660 group operator
+
+EOF
+
+sysrc devfs_system_ruleset=localrules
+service devfs restart
+
+
+
+
+####################################################
+# install display manager
+#
+
+pkg install -y sddm
+
+
+####################################################
+# alternate splash  
+# thanks to kamila.is
+####################################################
+
+cd /media
+wget https://kamila.is/media/v2.png
+echo 'splash="/boot/images/v2.png"' >>/boot/loader.conf
+cp -r /media/v2.png  /boot/images
+cd
+
+
+
+####################################################
+# set your screen resolution display 
+#
+echo 'efi_max_resolution="1920x1200"' >>/boot/loader.conf
+echo 'kern.vt.fb.default_mode="1920x1200"' >>/boot/loader.conf
+
+
+
+####################################################
+# install kde 6 plasma
+
+pkg install -y plasma6-plasma kate konsole ark remmina dolphin kvantum
+
+pkg install -y -g "plasma6-*"
+pkg install -y -g "kf6-*"
+
+
+pkg install -y  audacious-plugins-qt5 audacious-qt5 digikam elisa en-hunspell
+pkg install -y  freedesktop-sound-theme k3b kmix libva-utils libvdpau-va-gl 
+pkg install -y  konversation merkuro  signal-desktop vdpauinfo
+
+
+
+####################################################
+# optional install Mate Desktop
+
+pkg install -y -g "mate-*"
+
+pkg install -y dsbmixer eom remmina
+pkg install -y xdg-user-dirs
+pkg install -y octopkg
+
+
+####################################################
+# now install base apps
+
+pkg install -y firefox
+pkg install -y vlc 
+
+####################################################
+# now install extended apps
+
+pkg install -y chromium foreign-cdm
+
+pkg install -y thunderbird
+
+pkg install -y multimedia/mpv 
+
+
+####################################################
+# now install extra apps
+
+pkg install -y  gimp libreoffice
+
+
+
+####################################################
+# now install extra fonts
+
+pkg install -y \
+  cantarell-fonts \
+  droid-fonts-ttf \
+  inconsolata-ttf \
+  noto-basic \
+  noto-emoji \
+  roboto-fonts-ttf \
+  ubuntu-font \
+  webfonts
+
+
+pkg install -y terminus-font terminus-ttf
+
+
+
+
+
+
+
+####################################################
+# install virtualbox 7.0
+# 22.4.2025 NEW version dont forget hald_enable 
+# 11.06.2025 Freebsd 14.3 release block vboxdrv load, do not install vb on 14.3
+# 15.7.2025 now ok, but need reboot before vboxdrv config
+
+pkg install -y virtualbox-ose-70
+
+kldload vboxdrv
+echo 'vboxdrv_load="YES"' >> /boot/loader.conf
+echo 'vboxnet_load="YES"' >> /boot/loader.conf
+echo 'vboxnet_enable="YES"' >> /etc/rc.conf
+
+pw groupmod vboxusers -m root
+
+pw groupmod vboxusers -m administrateur
+
+#############################################
+# 15.7.2025
+# need reboot now and
+# execute chown after the reboot 
+
+# reboot
+
+
+#############################################
+# install VirtualBOX 7.0 second part ( and printer manager )
+
+chown root:vboxusers /dev/vboxnetctl
+chmod 0660 /dev/vboxnetctl
+
+echo 'own     vboxnetctl root:vboxusers' >> /etc/devfs.conf
+echo 'perm     vboxnetctl 0660' >> /etc/devfs.conf
+
+echo '[system=10]' >> /etc/devfs.rules
+echo "add path 'usb/*' mode 0660 group operator" >> /etc/devfs.rules
+
+# and printer cups
+echo "add path 'unlpt*' mode 0660 group cups" >> /etc/devfs.rules
+echo "add path 'unlpt*' mode 0660 group cups" >> /etc/devfs.rules
+
+echo "add path 'video*' mode 0660 group operator" >> /etc/devfs.rules
+echo "add path 'lpt*' mode 0660 group cups" >> /etc/devfs.rules
+
+
+####################################################
+# and install printer manager
+#
+
+pkg install -y cups gutenprint cups-filters 
+sysrc cupsd_enable="YES"
+sysrc devfs_system_ruleset="system"
+service devfs restart
+
+
+####################################################
+#  install webcam manager
+#
+
+
+pkg install -y webcamd v4l-utils
+sysrc -v webcamd_enable=YES
+
+
+
+
+####################################################
+# optional install xrdp to connect from Windows RDP (need reboot)
+
+pkg install -y xrdp
+echo  'xrdp_enable="YES"' >> /etc/rc.conf
+echo  'xrdp_sesman_enable="YES"' >> /etc/rc.conf
+
+
+####################################################
+# enable wdm on xrdp by vi
+# vi /usr/local/etc/xrdp/startwm.sh
+#	#enable
+#	startxfce4
+#	mate-session
+####################################################
+
+
+mv /usr/local/etc/xrdp/startwm.sh /usr/local/etc/xrdp/startwm.sh.backup
+echo 'export LANG=fr_FR.UTF-8' >> /usr/local/etc/xrdp/startwm.sh
+echo 'exec startplasma-x11' >> /usr/local/etc/xrdp/startwm.sh
+# echo 'exec mate-session' >> /usr/local/etc/xrdp/startwm.sh
+chmod 555  /usr/local/etc/xrdp/startwm.sh
+
+
+####################################################
+# end of base configuration, now enable sddm and reboot
+
+echo 'sddm_enable="YES"' >> /etc/rc.conf
+echo 'sddm_lang="ch_FR"' >> /etc/rc.conf
+
+freebsd-update fetch install
+
+reboot
+
+
+####################################################
+#   set latest to repo but kde plasma some tips to re install
+#
+# stop sddm to unlock shared files
+####################################################
+
+service sddm stop
+
+sysrc sddm_enable=no
+
+freebsd-update fetch install
+
+pkg update
+mkdir -p /usr/local/etc/pkg/repos
+echo 'FreeBSD: { url: "pkg+http://pkg.FreeBSD.org/${ABI}/latest" }' > /usr/local/etc/pkg/repos/FreeBSD.conf
+
+pkg update -f
+
+pkg upgrade -y
+
+##################################################
+# update to 14.3 remove some utilities, reinstall it
+
+pkg install -y kate konsole ark remmina dolphin
+
+
+
+####################################################
+# USE  KDE macos theme SONOMATIC 2.0 by phob1an, and
+# install accretion start image, whiteSur Dark for icon
+# and util and kvantum
+
+
+
+
+####################################################
+####################################################
+####################################################
+####################################################
+#  finito
+# 
+
+####################################################
+#  some option added at last minute
+
+
+####################################################
+# install display intel driver
+
+pkg install -y drm-kmod
+pkg install -y xf86-video-intel
+
+sysrc -f /etc/rc.conf kld_list+=intelgpu
+
+
+
+####################################################
+# install display AMD Graphic driver
+
+pkg install -y drm-kmod
+pkg install -y xf86-video-amdgpu
+
+sysrc -f /etc/rc.conf kld_list+=amdgpu
+
+cat >>/usr/local/etc/X11/xorg.conf.d/20amdgpu.conf <<EOF
+
+Section "Device"
+    Identifier "AMD Radeon PRO WX5100"
+    Driver     "amdgpu"
+    Option "DRI" "3"
+    Option "TearFree" "true"
+EndSection
+EOF
+
+
+
+###############################################
+# instal display VESA driver
+#
+# * if the graphics card is not automatically recognized and the desktop
+# is not displayed,
+# set the generic scfb driver as follows
+# vi /usr/local/etc/X11/xorg.conf.d/driver.conf see /etc/X11/xorg.conf
+# to create new
+# or 
+
+cat >>/usr/local/etc/X11/xorg.conf.d/driver.conf <<EOF
+
+Section "Device"
+    Identifier "Card0"
+    Driver     "scfb"
+EndSection
+EOF
+
+
+
+####################################################
+#install Xfce4 light display manager
+
+pkg install -y xfce xfce4-goodies xfce4-screensaver
+
+
+
+####################################################
+# install wine ( need graphics)
+# open user not root
+
+sudo pkg install -y wine
+sudo pkg install -y wine-mono
+
+cd /usr/local/share/wine
+sh pkg32.sh install wine mesa-dri
+wincfg    
+
+
+####################################################
+# Monitor configuration
+
+
+
+Use the cvt command to get the correct modeline data for your desired resolution. Example:
+Code:
+
+$ cvt 2560 1440
+
+ Modeline "2560x1440_60.00"  312.25  2560 2752 3024 3488  1440 1443 1448 1493 -hsync +vsync
+
+
+# 1200x800 59.86 Hz (CVT) hsync: 49.74 kHz; pclk: 78.00 MHz
+Modeline "1200x800_60.00"   78.00  1200 1264 1384 1568  800 803 813 831 -hsync +vsync
+
+
+Determine your monitor's identifier name by searching your dmesg output for the search string "Connector". In this example, my monitor is identified as "VGA-0" but your monitor will most likely use a different identifier.
+
+Create or modify the file /usr/local/etc/X11/xorg.conf or a similar file, along the following lines, using the exact modeline data you obtained using cvt for your "Modeline" and "PreferredMode" Option:
+Code:
+
+cat >/usr/local/etc/X11/xorg.conf.d/monitor.conf <<EOF
+
+Section "Monitor"
+  Identifier "VGA-0"
+  Modeline "2560x1440_60.00"  312.25  2560 2752 3024 3488  1440 1443 1448 1493 -hsync +vsync
+  Option     "PreferredMode" "2560x1440_60.00"
+EndSection
+EOF
+
+
+cat >/usr/local/etc/X11/xorg.conf.d/monitor.conf <<EOF
+
+Section "Monitor"
+  Identifier "VGA-0"
+Modeline "1920x1200_60.00"  193.25  1920 2056 2256 2592  1200 1203 1209 1245 -hsync +vsync
+Option     "PreferredMode" "1920x1200"
+EndSection
+EOF
+
+
+
