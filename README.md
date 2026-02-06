@@ -1,4 +1,4 @@
-# FreeBSD14
+# FreeBSD 14 / 15
 my little research on FreeBSD.
 
 Hello everyone, my name is Michel and I have been trying for some time to do a complete installation of FreeBSD 14 in French, because I live in French-speaking Switzerland.
