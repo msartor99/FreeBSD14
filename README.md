@@ -10,6 +10,7 @@ I also install some programs and all that on KDE.
 I spent a lot of time on this installation with my little knowledge, so I hope you will be indulgent.
 
 august 2025, them new version 2.0 is here. simplified. 
+
 2026, new version 2.1 for FB 15
 
 
