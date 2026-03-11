@@ -17,3 +17,8 @@ august 2025, them new version 2.0 is here. simplified.
 at now , april 2026, y try using IA Gemini to make a clean and powerfull script, but Gemini was complicated.
 result as soon as possible
 
+Here's the result of several days of conversation with Gemini, not perfect but effective.
+0.2 IA FreeBSD 15 workstation installation.txt
+
+Enjoy discovering this little experiment with AI
+
