@@ -1,0 +1,253 @@
+#!/bin/sh
+
+# =============================================================================
+# SCRIPT DE POST-INSTALLATION IDEMPOTENT - FREEBSD 15 (LENOVO P620)
+# Configuration : AMD Threadripper, RTX 2060, Plasma 6, Imprimantes & ZFS
+# =============================================================================
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "Erreur : Ce script doit être exécuté en tant que root."
+    exit 1
+fi
+
+export PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin
+
+echo ">>> Initialisation de la configuration pour Lenovo P620 (AMD + NVIDIA)"
+
+# -----------------------------------------------------------------------------
+# 1. FONCTION DE SAUVEGARDE (.origin et .backup)
+# -----------------------------------------------------------------------------
+backup_and_edit() {
+    local file="$1"
+    [ ! -f "$file" ] && return 1
+    if [ ! -f "${file}.origin" ]; then
+        cp -p "$file" "${file}.origin"
+        echo " [Backup] ${file}.origin créé."
+    fi
+    local ts=$(date +%Y%m%d_%H%M%S)
+    cp -p "$file" "${file}.backup_${ts}"
+}
+
+# -----------------------------------------------------------------------------
+# 2. MISE À JOUR ET INSTALLATION DES PAQUETS
+# -----------------------------------------------------------------------------
+echo ">>> Mise à jour système et installation des paquets (Quarterly initial)..."
+pkg bootstrap -y
+pkg update
+
+# Liste corrigée pour FreeBSD 15
+# Plasma 6, NVIDIA, Avahi (mDNS), Imprimantes, Workstation, ZFS utils
+PKGS="xorg sddm plasma6-plasma-desktop dolphin konsole plasma6-kde-cli-tools \
+      nvidia-driver nvidia-settings nvidia-xconfig libvdpau libva-vdpau-driver \
+      firefox vlc libreoffice gimp htop git curl wget rsync sudo unzip zip nano vim \
+      smartmontools cpu-microcode dmidecode \
+      fusefs-ntfs fusefs-exfat dsbmc dsbdriverd \
+      cups cups-filters hplip gutenprint \
+      avahi-app avahi-libdns nss_mdns \
+      zfs-stats"
+
+pkg install -y $PKGS
+nvidia-xconfig
+
+# -----------------------------------------------------------------------------
+# 3. CONFIGURATION MATÉRIELLE (LOADER.CONF & RC.CONF)
+# -----------------------------------------------------------------------------
+echo ">>> Configuration du Kernel et des Services..."
+
+# Loader : Microcode AMD et NVMe
+[ ! -f /boot/loader.conf ] && touch /boot/loader.conf
+backup_and_edit /boot/loader.conf
+for param in 'cpu_microcode_load="YES"' 'cpu_microcode_name="/boot/firmware/amd-ucode.bin"' 'nvme_load="YES"'; do
+    key=$(echo "$param" | cut -d= -f1)
+    if ! grep -q "^${key}=" /boot/loader.conf; then echo "$param" >> /boot/loader.conf; fi
+done
+
+# Services rc.conf (Ajout de Avahi)
+sysrc dbus_enable="YES"
+sysrc sddm_enable="YES"
+sysrc cupsd_enable="YES"
+sysrc avahi_daemon_enable="YES"
+sysrc avahi_dnsconfd_enable="YES"
+sysrc dsbdriverd_enable="YES"
+sysrc microcode_update_enable="YES"
+
+# Modules noyau
+for mod in nvidia-modeset amdtemp fusefs; do
+    if ! sysrc -n kld_list | grep -qw "$mod"; then sysrc kld_list+=" $mod"; fi
+done
+
+# -----------------------------------------------------------------------------
+# 4. CONFIGURATION RÉSEAU / IMPRESSION (AVAHI & NSSWITCH)
+# -----------------------------------------------------------------------------
+echo ">>> Configuration de la découverte réseau (mDNS)..."
+# Indispensable pour que le système résolve les noms .local des imprimantes
+backup_and_edit /etc/nsswitch.conf
+if ! grep -q "mdns" /etc/nsswitch.conf; then
+    sed -i '' 's/^hosts:.*/& mdns/' /etc/nsswitch.conf
+fi
+
+# -----------------------------------------------------------------------------
+# 5. CONFIGURATION X11 (CLAVIER CH-FR)
+# -----------------------------------------------------------------------------
+mkdir -p /usr/local/etc/X11/xorg.conf.d
+KBD_CONF="/usr/local/etc/X11/xorg.conf.d/00-keyboard.conf"
+if [ ! -f "$KBD_CONF" ]; then
+    cat << 'EOF' > "$KBD_CONF"
+
+Section "ServerFlags"
+                 Option "DontZap" "false"
+EndSection
+
+Section "InputClass"
+    Identifier "system-keyboard"
+    MatchIsKeyboard "on"
+    Option "XkbLayout" "ch"
+    Option "XkbVariant" "fr"
+    Option "XkbOptions" "terminate:ctrl_alt_bksp"
+EndSection
+EOF
+fi
+
+# -----------------------------------------------------------------------------
+# 6. DROITS ET ACCÈS (SUDO, SSH ROOT, USB)
+# -----------------------------------------------------------------------------
+echo ">>> Configuration des droits (Sudo, SSH, USB)..."
+
+# Sudo Wheel sans mot de passe
+backup_and_edit /usr/local/etc/sudoers
+sed -i '' -e 's/^# %wheel ALL=(ALL:ALL) NOPASSWD: ALL/%wheel ALL=(ALL:ALL) NOPASSWD: ALL/' /usr/local/etc/sudoers
+
+# SSH Root
+backup_and_edit /etc/ssh/sshd_config
+sed -i '' -e 's/^#PermitRootLogin.*/PermitRootLogin yes/' -e 's/^PermitRootLogin no/PermitRootLogin yes/' /etc/ssh/sshd_config
+service sshd restart >/dev/null 2>&1 || true
+
+# Montage USB
+backup_and_edit /etc/sysctl.conf
+grep -q "^vfs.usermount=1" /etc/sysctl.conf || echo "vfs.usermount=1" >> /etc/sysctl.conf
+sysctl vfs.usermount=1
+
+# Devfs rules (USB & Imprimantes)
+backup_and_edit /etc/devfs.rules
+if ! grep -q "^\[localrules=5\]" /etc/devfs.rules 2>/dev/null; then
+    cat << 'EOF' >> /etc/devfs.rules
+[localrules=5]
+add path 'da*' mode 0660 group operator
+add path 'usb*' mode 0660 group operator
+add path 'unlpt*' mode 0660 group cups
+add path 'ulpt*' mode 0660 group cups
+EOF
+fi
+sysrc devfs_system_ruleset="localrules"
+service devfs restart
+
+# -----------------------------------------------------------------------------
+# 7. LOCALISATION (FR_CH)
+# -----------------------------------------------------------------------------
+backup_and_edit /etc/login.conf
+if ! grep -q "^french|" /etc/login.conf; then
+    cat << 'EOF' >> /etc/login.conf
+french|Classe pour les utilisateurs francophones:\
+	:charset=UTF-8:\
+	:lang=fr_CH.UTF-8:\
+	:tc=default:
+EOF
+    cap_mkdb /etc/login.conf
+fi
+pw usermod root -L french
+pw usermod administrateur -L french
+
+
+# -----------------------------------------------------------------------------
+# 7. THEME SDDM
+# -----------------------------------------------------------------------------
+
+# --- Configuration des variables ---
+THEME_NAME="nasa"
+SDDM_THEMES_DIR="/usr/local/share/sddm/themes"
+TEMP_DIR="/tmp/sddm_custom"
+REPO_URL="https://raw.githubusercontent.com/msartor99/FreeBSD14/60b57e438a9d271d7db62ed46eb5f51661c5c31e"
+
+# Création d'un répertoire de travail propre
+mkdir -p $TEMP_DIR
+cd $TEMP_DIR
+
+echo "--- Téléchargement des ressources ---"
+fetch ${REPO_URL}/Main.qml
+fetch ${REPO_URL}/nasa1920.png
+fetch ${REPO_URL}/metadata.desktop
+fetch ${REPO_URL}/nasa2560login.jpg
+fetch ${REPO_URL}/freebsd-brand-rev.png
+fetch ${REPO_URL}/freebsd-logo-rev.png
+
+# --- Personnalisation de SDDM ---
+echo "--- Configuration de SDDM ---"
+
+# On s'assure que le thème de base "maldives" existe pour servir de modèle
+if [ -d "$SDDM_THEMES_DIR/maldives" ]; then
+    mkdir -p $SDDM_THEMES_DIR/$THEME_NAME
+    cp -R $SDDM_THEMES_DIR/maldives/* $SDDM_THEMES_DIR/$THEME_NAME/
+    
+    # Remplacement par les fichiers NASA
+    cp Main.qml $SDDM_THEMES_DIR/$THEME_NAME/
+    cp metadata.desktop $SDDM_THEMES_DIR/$THEME_NAME/
+    cp nasa2560login.jpg $SDDM_THEMES_DIR/$THEME_NAME/background.jpg
+    
+    # Application du thème dans la configuration globale
+    cat > /usr/local/etc/sddm.conf <<EOF
+[Theme]
+Current=$THEME_NAME
+
+[General]
+DisplayFont="Montserrat"
+EOF
+else
+    echo "Erreur : Le thème de base 'maldives' est introuvable. Installez sddm-freebsd-black-theme ou vérifiez l'installation de SDDM."
+fi
+
+# Copie des logos et de l'image de splash
+cp freebsd-brand-rev.png /boot/images/
+cp freebsd-logo-rev.png /boot/images/
+cp nasa1920.png /boot/images/splash.png
+# --- Activation du Splash Screen dans loader.conf ---
+# FreeBSD 15 utilise le chargeur Lua. On s'assure que les modules nécessaires sont chargés.
+
+sysrc -f /boot/loader.conf splash="/boot/images/splash.png"
+
+sysrc -f /boot/loader.conf boot_mute=YES
+sysrc splash_changer_enable=YES
+
+sed -i '' 's/run_rc_script ${_rc_elem} ${_boot}/run_rc_script ${_rc_elem} ${_boot} > \/dev\/null/g' /etc/rc
+sysrc rc_startmsgs=NO
+sysrc -f /boot/loader.conf autoboot_delay=3
+
+
+
+
+# -----------------------------------------------------------------------------
+# 8. SNAPSHOTS ZFS (AUTOMATISATION)
+# -----------------------------------------------------------------------------
+echo ">>> Configuration des snapshots ZFS périodiques..."
+SNAP_SH="/usr/local/bin/zfs-auto-snap.sh"
+if [ ! -f "$SNAP_SH" ]; then
+    cat << 'EOF' > "$SNAP_SH"
+#!/bin/sh
+# Création snapshot récursif sur zroot
+DATE=$(date +%Y-%m-%d-%H%M)
+zfs snapshot -r zroot@auto-$DATE
+# Conservation des 48 derniers snapshots (approx 2 jours si horaire)
+zfs list -t snapshot -o name | grep "@auto-" | head -n -48 | xargs -n 1 zfs destroy
+EOF
+    chmod +x "$SNAP_SH"
+fi
+(crontab -l 2>/dev/null | grep -v "zfs-auto-snap.sh" ; echo "0 * * * * $SNAP_SH") | crontab -
+
+# -----------------------------------------------------------------------------
+# 9. BASCULE LATEST
+# -----------------------------------------------------------------------------
+echo ">>> Passage en dépôt LATEST..."
+backup_and_edit /etc/pkg/FreeBSD.conf
+sed -i '' -e 's/quarterly/latest/g' /etc/pkg/FreeBSD.conf
+pkg update
+
+echo ">>> [TERMINÉ] Relancez la machine pour appliquer le microcode et le pilote NVIDIA."
