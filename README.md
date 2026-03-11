@@ -14,6 +14,6 @@ august 2025, them new version 2.0 is here. simplified.
 2026, new version 2.1 for FB 15
 
 
-at now , april 2026, y try using IA Gemini to make a clean and powerfull script, but Gemini was complicated
+at now , april 2026, y try using IA Gemini to make a clean and powerfull script, but Gemini was complicated.
 result as soon as possible
 
