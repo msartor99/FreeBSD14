@@ -1,17 +1,17 @@
 [SddmGreeterTheme]
 Name=Nasa
 Description=Nasa Theme
-Author=msartor
-Copyright=ms
+Author=Nasa Group
+Copyright=(c) 2026, Nasa Group
 License=CC-BY-SA
 Type=sddm-theme
-Version=0.2
+Version=0.1
 Website=https://github.com/sddm/sddm
-Screenshot=maldives.jpg
+Screenshot=.sa2560loginjpg
 MainScript=Main.qml
 ConfigFile=theme.conf
 TranslationsDirectory=translations
-Email=msartor@idealservice.ch
-Theme-Id=nasa
+Email=msartor99@gmail.com
+Theme-Id=Nasa
 Theme-API=2.0
 QtVersion=6
