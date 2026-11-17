@@ -1,0 +1,469 @@
+# installation  freebsd 15 + wayland + plasma6
+# version 4.1 20.10.2026
+# boot usb et install : keyboard sf, network ip fixe, user administrateur,password
+
+
+
+####################################################
+#                                       install sudo access
+
+####################################################
+
+pkg update -y
+pkg install -y sudo
+
+
+####################################################
+# BASE CONFIG
+#  
+####################################################
+
+echo "PermitRootLogin yes" >> /etc/ssh/sshd_config
+sh /etc/rc.d/sshd restart
+
+freebsd-update fetch install
+# need reboot
+
+####################################################
+# some tips and silent boot (some times...)
+####################################################
+
+sysrc -f /boot/loader.conf boot_mute=YES
+sysrc splash_changer_enable=YES
+
+sed -i '' 's/run_rc_script ${_rc_elem} ${_boot}/run_rc_script ${_rc_elem} ${_boot} > \/dev\/null/g' /etc/rc
+sysrc rc_startmsgs=NO
+
+sysrc -f /boot/loader.conf autoboot_delay=3
+
+echo "kern.sched.preempt_thresh=224 " >>/etc/sysctl.conf
+echo "kern.ipc.shm_allow_removed=1" >>/etc/sysctl.conf
+
+sysrc -f /boot/loader.conf tmpfs_load=YES
+
+sysrc -f /boot/loader.conf aio_load=YES
+
+sysctl net.local.stream.recvspace=65536
+sysctl net.local.stream.sendspace=65536
+
+
+
+####################################################
+# some tips to manage temp on board
+# 
+####################################################
+
+####################################################
+# for Intel CPU
+####################################################
+
+pkg install -y cpu-microcode
+sysrc -f /boot/loader.conf coretemp_load="YES"
+sysrc -f /boot/loader.conf cpu_microcode_name="/boot/firmware/intel-ucode.bin"
+pkg install -y sensors
+
+####################################################
+# for AMD CPU 
+####################################################
+
+sysrc -f /boot/loader.conf amdtemp_load="YES"
+pkg install -y sensors
+pkg install -y cpu-microcode
+sysrc -f /boot/loader.conf cpu_microcode_load="YES"
+sysrc -f /boot/loader.conf cpu_microcode_name="/boot/firmware/amd-ucode.bin"
+
+
+
+####################################################
+# need enable Linux for Nvidia driver and lot of other things
+#
+####################################################
+
+sysrc linux_enable=YES
+sysrc linux64_enable=YES
+kldload linux
+kldload linux64
+service linux start
+sysrc linux_mounts_enable="YES"
+
+pkg install -y linux-rl9
+
+####################################################
+# configuration base and 
+# install htop and utilities maybe not avahi
+####################################################
+
+pkg install -y doas unzip libzip wget git 
+pkg install -y htop neofetch python3 bashtop
+pkg install -y ImageMagick7
+
+# configuration powermanagement
+
+pkg install -y smartmontools
+sysrc smartd_enable=YES
+cp /usr/local/etc/smartd.conf.sample /usr/local/etc/smartd.conf
+service smartd start
+
+
+####################################################
+# install french class 
+#   do not use cat
+####################################################
+
+
+echo "  ">> /etc/login.conf
+echo 'french|French Users Accounts:\' >> /etc/login.conf
+echo '     :charset=UTF-8:\' >> /etc/login.conf
+echo '     :lang=fr_FR.UTF-8:\' >> /etc/login.conf
+echo '      lc_all=fr_FR:\' >> /etc/login.conf
+echo '      lc_collate=fr_FR:\' >> /etc/login.conf
+echo '      lc_ctype=fr_FR:\' >> /etc/login.conf
+echo '      lc_messages=fr_FR:\' >> /etc/login.conf
+echo '     :tc=default:' >> /etc/login.conf
+echo '   ' >> /etc/login.conf
+
+cap_mkdb /etc/login.conf
+echo 'defaultclass=french' > /etc/adduser.conf
+
+pw usermod administrateur -G wheel,operator,video -L french
+
+pw usermod root -L french
+
+
+
+####################################################
+# install printer manager cups and usb support
+#
+####################################################
+
+cat >>/etc/devfs.rules <<EOF
+
+[localrules=5]
+add path 'da*' mode 0660 group operator
+add path 'cd*' mode 0660 group operator
+add path 'uscanner*' mode 0660 group operator
+add path 'xpt*' mode 660 group operator
+add path 'pass*' mode 660 group operator
+add path 'md*' mode 0660 group operator
+add path 'msdosfs/*' mode 0660 group operator
+add path 'ext2fs/*' mode 0660 group operator
+add path 'ntfs/*' mode 0660 group operator
+add path 'usb/*' mode 0660 group operator
+add path 'unlpt*' mode 0660 group cups
+add path 'lpt*' mode 0660 group cups
+EOF
+
+pkg install -y cups gutenprint cups-filters hplip system-config-printer hplip
+sysrc cupsd_enable="YES"
+sysrc devfs_system_ruleset=localrules
+service devfs restart
+
+
+# install USB support
+
+pkg install -y fusefs-ntfs fusefs-ext2 fusefs-hfsfuse
+sysrc kld_list+=fusefs
+sysrc kld_list+=ext2fs
+kldload fusefs
+kldload ext2fs
+echo "vfs.usermount=1" >> /etc/sysctl.conf
+
+
+
+####################################################
+# install audio
+# il y a un probleme pas de mixer ou son dans x avec K5200
+####################################################
+
+pkg install -y pulseaudio pipewire wireplumber
+pkg install -y audio/freedesktop-sound-theme
+
+
+sysrc sound_load="YES"
+sysrc  snd_hda_load="YES"
+
+# for Nvidia
+sysctl hw.snd.default_unit=1
+
+
+
+
+####################################################
+# install xorg
+#
+####################################################
+
+pkg install -y xorg dbus avahi signal-cli seatd
+sysrc dbus_enable=YES
+sysrc avahi_daemon_enable=YES
+echo  "proc       proc       procfs       rw       0       0" >>/etc/fstab
+echo  "fdesc     /dev/fd      fdescfs       rw       0       0" >>/etc/fstab
+
+sysrc seatd_enable=YES
+
+
+####################################################
+# now set swiss french keyboard on X11 config
+#
+####################################################
+
+cat >/usr/local/etc/X11/xorg.conf.d/20-keyboards.conf <<EOF
+
+Section "ServerFlags"
+                 Option "DontZap" "false"
+EndSection
+
+
+Section     "InputClass"
+           Identifier     "All Keyboards"
+           MatchIsKeyboard    "yes"
+           Option     "XkbLayout" "ch"
+           Option     "XkbVariant" "fr"
+           Option     "XkbOptions" "terminate:ctrl_alt_bksp" 
+
+EndSection
+
+EOF
+
+
+####################################################
+# setup xorg nvidia and 27" screen
+#
+####################################################
+
+cat > /usr/local/etc/X11/xorg.conf.d/10-nvidia.conf << EOF
+Section "Device"
+    Identifier     "NVIDIA Card"
+    Driver         "nvidia"
+    # Option nécessaire pour empêcher le pilote de forcer la 4K par défaut
+    Option         "ModeValidation" "NoMaxResolutionCheck"
+EndSection
+
+Section "Monitor"
+    Identifier     "Monitor0"
+    VendorName     "Unknown"
+    ModelName      "Unknown"
+EndSection
+
+Section "Screen"
+    Identifier     "Screen0"
+    Device         "NVIDIA Card"
+    Monitor        "Monitor0"
+    DefaultDepth    24
+    Option         "MetaModes" "2560x1440 +0+0"
+    SubSection "Display"
+        Depth       24
+        Modes      "2560x1440"
+    EndSubSection
+EndSection
+EOF
+
+####################################################
+# special ASUS PB270Q, 4K set to max 
+# 2560x1440
+####################################################
+
+cat >> /boot/loader.conf << EOF
+efi_max_resolution="1440p"
+kern.vt.fb.default_mode="2560x1440"
+EOF
+
+
+
+####################################################
+# list graphic card type 
+#
+####################################################
+
+pciconf -lv | grep -B4 "VGA"
+
+
+
+####################################################
+# install Nvidia driver 470
+#
+####################################################
+
+pkg install -y nvidia-driver-470 linux-nvidia-libs-470 nvidia-kmod-470 nvidia-drm-kmod-470 libc6-shim
+
+
+####################################################
+# install Last Nvidia driver 
+#
+####################################################
+
+pkg install -y nvidia-driver linux-nvidia-libs nvidia-kmod nvidia-drm-kmod libc6-shim
+
+
+####################################################
+# install Nvidia utilities and settings 
+#
+####################################################
+
+cat >> /boot/loader.conf << EOF
+hw.nvidiadrm.modeset="1"
+hw.nvidia.registry.EnableGpuFirmware="1"
+nvidia-drm.modeset="1"
+EOF
+
+pkg install -y  nvidia-settings nvidia-xconfig
+sysrc kld_list+="nvidia-modeset"
+sysrc nvidia_modeset_enable="YES"
+
+nvidia-xconfig
+
+
+
+
+####################################################
+# now install sddm, theme maldives
+# load keyboard first
+#
+####################################################
+
+pkg install -y sddm
+
+sysrc sddm_enable="YES"
+sysrc sddm_lang="ch_FR"
+cat >> /usr/local/share/sddm/scripts/Xsetup <<EOF
+setxkbmap ch fr
+EOF
+
+
+cat > /usr/local/etc/sddm.conf <<EOF
+# Disable virtual keyboard by default
+InputMethod=""
+EOF
+
+mkdir -p /usr/local/etc/sddm.conf.d
+cat > /usr/local/etc/sddm.conf.d/theme.conf <<EOF
+
+[Theme]
+# Current Theme name
+Current=maldives
+
+EOF
+
+
+git clone https://github.com/msartor99/FreeBSD14 /tmp/fb14_assets
+
+
+cd /usr/local/share/sddm/themes
+mkdir nasa
+cp ./maldives/* ./nasa/
+cd nasa
+rm *.jpg
+# cp /tmp/fb14_assets/Main.qml .
+# cp /tmp/fb14_assets/metadata.desktop .
+rm background.jpg
+cp /tmp/fb14_assets/nasa2560login.jpg background.jpg
+
+cat > /usr/local/etc/sddm.conf <<EOF
+[Theme]
+# Current theme name
+Current=nasa
+[General]
+background=background.jpg
+displayFont="Montserrat"
+EOF
+
+
+
+####################################################
+# alternate splash  thanks to NASA for images
+#
+####################################################
+
+
+cp -r /tmp/fb14_assets/nasa1920.png  /boot/images/splash.png
+sysrc -f /boot/loader.conf splash="/boot/images/splash.png"
+sysrc -f /boot/loader.conf shutdown_splash="/boot/images/splash.png"
+
+cd
+
+
+####################################################
+# install XFCE 4
+####################################################
+
+pkg install -y xfce xfce4-goodies
+
+####################################################
+# install MATE Desktop
+####################################################
+
+pkg install -y -g "mate-*"
+
+
+####################################################
+# install plasma6
+####################################################
+
+pkg install -y --g "plasma6-*"
+pkg install -y --g "kf6*"
+
+pkg install -y pavucontrol
+pkg install -y kate konsole ark remmina dolphin Kvantum
+
+
+
+
+
+
+####################################################
+# now again silent msg on boot 
+# 
+####################################################
+
+sed -i '' 's/run_rc_script ${_rc_elem} ${_boot}/run_rc_script ${_rc_elem} ${_boot} > \/dev\/null/g' /etc/rc
+
+
+####################################################
+# now install base apps
+# 
+####################################################
+
+pkg install -y firefox 
+
+pkg install -y vlc ffmpeg libva-vdpau-driver libva-utils libdvdread libdvdnav signal-cli \
+xdg-user-dirs octopkg multimedia/mpv \
+gstreamer1-plugins-all gstreamer1-libav libbluray libdvdread libdvdnav
+
+
+
+
+####################################################
+# install virtualbox 7
+# 15.3.2026 now ok, and no reboot 
+#
+####################################################
+
+pkg install -y virtualbox-ose-72
+
+kldload vboxdrv
+kldload vboxnetflt
+kldload vboxnetadp
+
+sysrc -f /boot/loader.conf vboxdrv_load="YES"
+sysrc -f /boot/loader.conf vboxnet_load="YES"
+sysrc vboxnet_enable="YES"
+
+service devfs restart 
+
+pw groupmod vboxusers -m root
+
+pw groupmod vboxusers -m administrateur
+
+chown root:vboxusers /dev/vboxnetctl
+chmod 0660 /dev/vboxnetctl
+
+echo 'own     vboxnetctl root:vboxusers' >> /etc/devfs.conf
+echo 'perm     vboxnetctl 0660' >> /etc/devfs.conf
+
+echo '[system=11]' >> /etc/devfs.rules
+echo "add path 'usb/*' mode 0660 group operator" >> /etc/devfs.rules
+echo "add path 'video*' mode 0660 group operator" >> /etc/devfs.rules
+
+
+
+
